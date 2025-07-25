@@ -42,3 +42,4 @@ C:\Users\micha\source\repos\OutlookArchivierungApp\bin\Debug\net8.0-windows\Micr
 C:\Users\micha\source\repos\OutlookArchivierungApp\bin\Debug\net8.0-windows\Microsoft.Extensions.Options.dll
 C:\Users\micha\source\repos\OutlookArchivierungApp\bin\Debug\net8.0-windows\Microsoft.Extensions.Primitives.dll
 C:\Users\micha\source\repos\OutlookArchivierungApp\bin\Debug\net8.0-windows\PuppeteerSharp.dll
+C:\Users\micha\source\repos\OutlookArchivierungApp\obj\Debug\net8.0-windows\OutlookArchivierungApp.sourcelink.json

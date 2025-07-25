@@ -28,6 +28,14 @@ namespace OutlookArchivierungApp
         private BackgroundWorker loadEmailsWorker;
         private string settingsFilePath;
 
+        // Felder für das Dateinamen-Muster
+        private System.Windows.Forms.Label filenamePatternLabel;
+
+
+        private System.Windows.Forms.CheckBox datePlaceholderCheckBox;
+        private System.Windows.Forms.CheckBox subjectPlaceholderCheckBox;
+        private System.Windows.Forms.CheckBox senderPlaceholderCheckBox;
+
         public Form1()
         {
             InitializeComponent();
@@ -304,6 +312,7 @@ namespace OutlookArchivierungApp
             // Subfolder-Steuerelemente deaktivieren
 
             statusLabel.Text = "Bereit";
+            //AddFilenamePatternControls();
         }
 
         private void MakeAllControlsVisible()
@@ -436,6 +445,7 @@ namespace OutlookArchivierungApp
                         createSubfoldersCheckBox.Checked = settings.CreateSubfolders;
                         subfolderTypeComboBox.SelectedIndex = settings.SubfolderType;
                         createLogFileCheckBox.Checked = settings.CreateLogFile;
+                        filenamePatternTextBox.Text = settings.FilenamePattern ?? "{YYYY-MM-DD}_{Betreff}_{Absender}";
                     }
                 }
             }
@@ -456,7 +466,8 @@ namespace OutlookArchivierungApp
                     IncludeCcBcc = includeCcBccCheckBox.Checked,
                     CreateSubfolders = createSubfoldersCheckBox.Checked,
                     SubfolderType = subfolderTypeComboBox.SelectedIndex,
-                    CreateLogFile = createLogFileCheckBox.Checked
+                    CreateLogFile = createLogFileCheckBox.Checked,
+                    FilenamePattern = filenamePatternTextBox.Text
                 };
 
                 string directory = Path.GetDirectoryName(settingsFilePath);
@@ -790,7 +801,7 @@ namespace OutlookArchivierungApp
             emailsDataGridView.Sort(emailsDataGridView.Columns["ReceivedTime"], ListSortDirection.Descending);
         }
 
- 
+
         private void ApplyFilter()
         {
             if (allEmails == null) return;
@@ -978,7 +989,13 @@ namespace OutlookArchivierungApp
 
         private string GenerateFileName(EmailInfo email)
         {
-            return $"{email.ReceivedTime:yyyy-MM-dd}_{SanitizeFileName(email.Subject)}";
+            string pattern = filenamePatternTextBox.Text;
+            string fileName = pattern
+                .Replace("{YYYY-MM-DD}", email.ReceivedTime.ToString("yyyy-MM-dd"))
+                .Replace("{Betreff}", SanitizeFileName(email.Subject))
+                .Replace("{Absender}", SanitizeFileName(email.SenderName));
+            // ggf. weitere Platzhalter
+            return fileName;
         }
 
         private string SanitizeFileName(string fileName)
@@ -1069,7 +1086,7 @@ namespace OutlookArchivierungApp
             public ExportFormat Format { get; set; } = ExportFormat.PDF;
         }
 
-        
+
 
         private string CleanHtmlContent(string htmlContent)
         {
@@ -1106,6 +1123,82 @@ namespace OutlookArchivierungApp
         }
 
         private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        //private void AddFilenamePatternControls()
+        //{
+        //    // Label für das Dateinamen-Muster
+        //    filenamePatternLabel = new Label();
+        //    filenamePatternLabel.Text = "Dateinamen-Muster:";
+        //    filenamePatternLabel.Location = new Point(15, 210);
+        //    filenamePatternLabel.Size = new Size(120, 20);
+        //    groupBox4.Controls.Add(filenamePatternLabel);
+
+        //    // TextBox für das Muster
+        //    filenamePatternTextBox = new TextBox();
+        //    filenamePatternTextBox.Name = "filenamePatternTextBox";
+        //    filenamePatternTextBox.Size = new Size(250, 20);
+        //    filenamePatternTextBox.Location = new Point(140, 210);
+        //    filenamePatternTextBox.Text = "{YYYY-MM-DD}_{Betreff}_{Absender}";
+        //    groupBox4.Controls.Add(filenamePatternTextBox);
+
+        //    // Buttons für Platzhalter
+        //    Button btnDate = new Button();
+        //    btnDate.Text = "{YYYY-MM-DD}";
+        //    btnDate.Size = new Size(100, 25);
+        //    btnDate.Location = new Point(15, 240);
+        //    btnDate.Click += (s, e) => InsertPlaceholder("{YYYY-MM-DD}");
+        //    groupBox4.Controls.Add(btnDate);
+
+        //    Button btnSubject = new Button();
+        //    btnSubject.Text = "{Betreff}";
+        //    btnSubject.Size = new Size(80, 25);
+        //    btnSubject.Location = new Point(120, 240);
+        //    btnSubject.Click += (s, e) => InsertPlaceholder("{Betreff}");
+        //    groupBox4.Controls.Add(btnSubject);
+
+        //    Button btnSender = new Button();
+        //    btnSender.Text = "{Absender}";
+        //    btnSender.Size = new Size(80, 25);
+        //    btnSender.Location = new Point(210, 240);
+        //    btnSender.Click += (s, e) => InsertPlaceholder("{Absender}");
+        //    groupBox4.Controls.Add(btnSender);
+
+        //    // Optional: Weitere Platzhalter-Buttons
+        //    Button btnMail = new Button();
+        //    btnMail.Text = "{Mail}";
+        //    btnMail.Size = new Size(80, 25);
+        //    btnMail.Location = new Point(300, 240);
+        //    btnMail.Click += (s, e) => InsertPlaceholder("{Mail}");
+        //    groupBox4.Controls.Add(btnMail);
+        //}
+
+        private void InsertPlaceholder(string placeholder)
+        {
+            if (filenamePatternTextBox == null) return;
+            int selectionIndex = filenamePatternTextBox.SelectionStart;
+            filenamePatternTextBox.Text = filenamePatternTextBox.Text.Insert(selectionIndex, placeholder);
+            filenamePatternTextBox.SelectionStart = selectionIndex + placeholder.Length;
+        }
+
+        private void btnDate_Click(object sender, EventArgs e)
+        {
+            InsertPlaceholder("{YYYY-MM-DD}");
+        }
+
+        private void btnSubject_Click(object sender, EventArgs e)
+        {
+            InsertPlaceholder("{Betreff}");
+        }
+
+        private void btnSender_Click(object sender, EventArgs e)
+        {
+            InsertPlaceholder("{Absender}");
+        }
+
+        private void filenamePatternTextBox_TextChanged(object sender, EventArgs e)
         {
 
         }

@@ -49,6 +49,11 @@
             exportAllButton = new Button();
             settingsTabPage = new TabPage();
             groupBox4 = new GroupBox();
+            btnSender = new Button();
+            btnSubject = new Button();
+            btnDate = new Button();
+            filenamePatternTextBox = new TextBox();
+            label2 = new Label();
             includeAttachmentsCheckBox = new CheckBox();
             includeCcBccCheckBox = new CheckBox();
             createSubfoldersCheckBox = new CheckBox();
@@ -278,6 +283,11 @@
             // 
             // groupBox4
             // 
+            groupBox4.Controls.Add(btnSender);
+            groupBox4.Controls.Add(btnSubject);
+            groupBox4.Controls.Add(btnDate);
+            groupBox4.Controls.Add(filenamePatternTextBox);
+            groupBox4.Controls.Add(label2);
             groupBox4.Controls.Add(includeAttachmentsCheckBox);
             groupBox4.Controls.Add(includeCcBccCheckBox);
             groupBox4.Controls.Add(createSubfoldersCheckBox);
@@ -289,6 +299,53 @@
             groupBox4.TabIndex = 3;
             groupBox4.TabStop = false;
             groupBox4.Text = "Export-Einstellungen";
+            // 
+            // btnSender
+            // 
+            btnSender.Location = new Point(318, 153);
+            btnSender.Name = "btnSender";
+            btnSender.Size = new Size(75, 23);
+            btnSender.TabIndex = 8;
+            btnSender.Text = "Absender";
+            btnSender.UseVisualStyleBackColor = true;
+            btnSender.Click += btnSender_Click;
+            // 
+            // btnSubject
+            // 
+            btnSubject.Location = new Point(233, 153);
+            btnSubject.Name = "btnSubject";
+            btnSubject.Size = new Size(75, 23);
+            btnSubject.TabIndex = 7;
+            btnSubject.Text = "Betreff";
+            btnSubject.UseVisualStyleBackColor = true;
+            btnSubject.Click += btnSubject_Click;
+            // 
+            // btnDate
+            // 
+            btnDate.Location = new Point(152, 153);
+            btnDate.Name = "btnDate";
+            btnDate.Size = new Size(75, 23);
+            btnDate.TabIndex = 6;
+            btnDate.Text = "Datum";
+            btnDate.UseVisualStyleBackColor = true;
+            btnDate.Click += btnDate_Click;
+            // 
+            // filenamePatternTextBox
+            // 
+            filenamePatternTextBox.Location = new Point(134, 124);
+            filenamePatternTextBox.Name = "filenamePatternTextBox";
+            filenamePatternTextBox.Size = new Size(336, 23);
+            filenamePatternTextBox.TabIndex = 5;
+            filenamePatternTextBox.TextChanged += filenamePatternTextBox_TextChanged;
+            // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Location = new Point(15, 132);
+            label2.Name = "label2";
+            label2.Size = new Size(113, 15);
+            label2.TabIndex = 4;
+            label2.Text = "Dateinamen-Muster";
             // 
             // includeAttachmentsCheckBox
             // 
@@ -515,5 +572,10 @@
         private ComboBox exportFormatComboBox;
         private CheckBox preserveFormattingCheckBox;
         private CheckBox embedImagesCheckBox;
+        private TextBox filenamePatternTextBox;
+        private Label label2;
+        private Button btnSender;
+        private Button btnSubject;
+        private Button btnDate;
     }
 }

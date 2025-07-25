@@ -19,7 +19,6 @@ namespace OutlookArchivierungApp
 {
     public partial class Form1 : Form
     {
-        // Alle Designer-Felder entfernen - werden automatisch neu generiert
         private Outlook.Application? outlookApp;
         private Outlook.NameSpace? nameSpace;
         private List<EmailInfo> allEmails;
@@ -325,7 +324,7 @@ namespace OutlookArchivierungApp
                 emailsDataGridView,
                 dateFromPicker, dateToPicker, statusFilterComboBox, applyFilterButton, clearFilterButton,
                 includeAttachmentsCheckBox, includeCcBccCheckBox, createSubfoldersCheckBox,
-                createLogFileCheckBox, subfolderTypeComboBox
+                createLogFileCheckBox
             };
 
             foreach (var control in allControls)
@@ -443,9 +442,8 @@ namespace OutlookArchivierungApp
                         includeAttachmentsCheckBox.Checked = settings.IncludeAttachments;
                         includeCcBccCheckBox.Checked = settings.IncludeCcBcc;
                         createSubfoldersCheckBox.Checked = settings.CreateSubfolders;
-                        subfolderTypeComboBox.SelectedIndex = settings.SubfolderType;
-                        createLogFileCheckBox.Checked = settings.CreateLogFile;
                         filenamePatternTextBox.Text = settings.FilenamePattern ?? "{YYYY-MM-DD}_{Betreff}_{Absender}";
+                        folderPatternTextBox.Text = settings.FolderPattern ?? "{YYYY}\\{Absender}";
                     }
                 }
             }
@@ -465,9 +463,8 @@ namespace OutlookArchivierungApp
                     IncludeAttachments = includeAttachmentsCheckBox.Checked,
                     IncludeCcBcc = includeCcBccCheckBox.Checked,
                     CreateSubfolders = createSubfoldersCheckBox.Checked,
-                    SubfolderType = subfolderTypeComboBox.SelectedIndex,
-                    CreateLogFile = createLogFileCheckBox.Checked,
-                    FilenamePattern = filenamePatternTextBox.Text
+                    FilenamePattern = filenamePatternTextBox.Text,
+                    FolderPattern = folderPatternTextBox.Text
                 };
 
                 string directory = Path.GetDirectoryName(settingsFilePath);
@@ -489,9 +486,9 @@ namespace OutlookArchivierungApp
             public bool IncludeAttachments { get; set; } = true;
             public bool IncludeCcBcc { get; set; } = false;
             public bool CreateSubfolders { get; set; } = false;
-            public int SubfolderType { get; set; } = 0;
             public string? FilenamePattern { get; set; }
             public bool CreateLogFile { get; set; } = true;
+            public string? FolderPattern { get; set; }
         }
 
         private void BrowseButton_Click(object sender, EventArgs e)
@@ -662,6 +659,7 @@ namespace OutlookArchivierungApp
         {
             var emailsToExport = (List<EmailInfo>)e.Argument;
             var result = new ExportResult();
+            var errorList = new List<string>();
 
             // Synchroner Export mit iTextSharp (einfacher und zuverlässiger)
             for (int i = 0; i < emailsToExport.Count; i++)
@@ -675,8 +673,19 @@ namespace OutlookArchivierungApp
                 try
                 {
                     string fileName = GenerateFileName(emailsToExport[i]);
-                    string htmlFilePath = Path.Combine(outputFolderTextBox.Text, fileName + ".html");
-                    string pdfFilePath = Path.Combine(outputFolderTextBox.Text, fileName + ".pdf");
+                    string targetFolder = outputFolderTextBox.Text;
+
+                    // Unterordner-Logik
+                    if (createSubfoldersCheckBox.Checked)
+                    {
+                        string subfolderPath = GenerateFolderName(emailsToExport[i]);
+                        targetFolder = Path.Combine(outputFolderTextBox.Text, subfolderPath);
+                        if (!Directory.Exists(targetFolder))
+                            Directory.CreateDirectory(targetFolder);
+                    }
+
+                    string htmlFilePath = Path.Combine(targetFolder, fileName + ".html");
+                    string pdfFilePath = Path.Combine(targetFolder, fileName + ".pdf");
 
                     if (exportFormatComboBox.SelectedItem?.ToString() == "HTML")
                     {
@@ -685,9 +694,14 @@ namespace OutlookArchivierungApp
                     }
                     else
                     {
-                        // Beide Formate erstellen
                         SaveAsHtml(emailsToExport[i], htmlFilePath);
-                        ConvertHtmlToPdf(htmlFilePath, pdfFilePath);
+
+                        // MailItem holen:
+                        var mailItem = GetMailItemByEntryID(emailsToExport[i].EntryID);
+                        if (mailItem != null)
+                            ConvertHtmlToPdfWithAttachments(htmlFilePath, pdfFilePath, mailItem, errorList);
+                        else
+                            ConvertHtmlToPdf(htmlFilePath, pdfFilePath); // Fallback ohne Anhänge
                     }
                     result.SuccessCount++;
                 }
@@ -698,6 +712,11 @@ namespace OutlookArchivierungApp
                 }
 
                 exportWorker.ReportProgress((i * 100) / emailsToExport.Count);
+            }
+
+            if (errorList.Count > 0)
+            {
+                MessageBox.Show("Folgende Fehler sind beim Einfügen von Anhängen aufgetreten:\n\n" + string.Join("\n", errorList), "Anhang-Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             e.Result = result;
@@ -987,15 +1006,161 @@ namespace OutlookArchivierungApp
             task.Wait(); // Synchron warten
         }
 
+        private void ConvertHtmlToPdfWithAttachments(string htmlFilePath, string pdfFilePath, Outlook.MailItem mailItem, List<string> errorList)
+        {
+            ConvertHtmlToPdf(htmlFilePath, pdfFilePath);
+
+            if (mailItem.Attachments.Count > 0)
+            {
+                string tempPdf = Path.GetTempFileName();
+                File.Copy(pdfFilePath, tempPdf, true);
+
+                using (var reader = new iTextSharp.text.pdf.PdfReader(tempPdf))
+                using (var fs = new FileStream(pdfFilePath, FileMode.Create, FileAccess.Write))
+                using (var stamper = new iTextSharp.text.pdf.PdfStamper(reader, fs))
+                {
+                    for (int a = 1; a <= mailItem.Attachments.Count; a++)
+                    {
+                        var att = mailItem.Attachments[a];
+                        string ext = Path.GetExtension(att.FileName).ToLower();
+                        string tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ext);
+
+                        try
+                        {
+                            // Outlook-Objekte (z.B. eingebettete E-Mails) überspringen
+                            if (att.Type != Outlook.OlAttachmentType.olByValue)
+                            {
+                                errorList.Add($"Anhang {att.FileName} ist kein Datei-Anhang und wird übersprungen.");
+                                continue;
+                            }
+
+                            // SaveAsFile explizit absichern!
+                            try
+                            {
+                                att.SaveAsFile(tempFile);
+                            }
+                            catch (Exception ex)
+                            {
+                                errorList.Add($"Anhang {att.FileName} konnte nicht gespeichert werden (SaveAsFile-Fehler): {ex.Message}");
+                                continue;
+                            }
+
+                            if (!File.Exists(tempFile))
+                            {
+                                errorList.Add($"Anhang {att.FileName} konnte nicht gespeichert werden: Datei nicht gefunden.");
+                                continue;
+                            }
+
+                            var fileInfo = new FileInfo(tempFile);
+                            if (fileInfo.Length == 0)
+                            {
+                                errorList.Add($"Anhang {att.FileName} ist leer und wird übersprungen.");
+                                continue;
+                            }
+
+                            if (ext == ".pdf")
+                            {
+                                try
+                                {
+                                    using (var attReader = new iTextSharp.text.pdf.PdfReader(tempFile))
+                                    {
+                                        int n = attReader.NumberOfPages;
+                                        for (int i = 1; i <= n; i++)
+                                        {
+                                            stamper.InsertPage(reader.NumberOfPages + 1, reader.GetPageSize(1));
+                                            var cb = stamper.GetOverContent(reader.NumberOfPages);
+                                            var page = stamper.GetImportedPage(attReader, i);
+                                            cb.AddTemplate(page, 0, 0);
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    errorList.Add($"PDF-Anhang {att.FileName} konnte nicht verarbeitet werden: {ex.Message}");
+                                    stamper.InsertPage(reader.NumberOfPages + 1, reader.GetPageSize(1));
+                                    iTextSharp.text.pdf.ColumnText.ShowTextAligned(
+                                        stamper.GetOverContent(reader.NumberOfPages),
+                                        iTextSharp.text.Element.ALIGN_LEFT,
+                                        new iTextSharp.text.Phrase($"PDF-Anhang {att.FileName} konnte nicht eingefügt werden."),
+                                        50, 800, 0
+                                    );
+                                }
+                            }
+                            else if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif")
+                            {
+                                try
+                                {
+                                    var img = iTextSharp.text.Image.GetInstance(tempFile);
+                                    var pageSize = new iTextSharp.text.Rectangle(img.Width, img.Height);
+                                    stamper.InsertPage(reader.NumberOfPages + 1, pageSize);
+                                    var cb = stamper.GetOverContent(reader.NumberOfPages);
+                                    img.SetAbsolutePosition(0, 0);
+                                    cb.AddImage(img);
+                                }
+                                catch (Exception ex)
+                                {
+                                    errorList.Add($"Bild-Anhang {att.FileName} konnte nicht eingefügt werden: {ex.Message}");
+                                    stamper.InsertPage(reader.NumberOfPages + 1, reader.GetPageSize(1));
+                                    iTextSharp.text.pdf.ColumnText.ShowTextAligned(
+                                        stamper.GetOverContent(reader.NumberOfPages),
+                                        iTextSharp.text.Element.ALIGN_LEFT,
+                                        new iTextSharp.text.Phrase($"Bild-Anhang {att.FileName} konnte nicht eingefügt werden."),
+                                        50, 800, 0
+                                    );
+                                }
+                            }
+                            else
+                            {
+                                stamper.InsertPage(reader.NumberOfPages + 1, reader.GetPageSize(1));
+                                iTextSharp.text.pdf.ColumnText.ShowTextAligned(
+                                    stamper.GetOverContent(reader.NumberOfPages),
+                                    iTextSharp.text.Element.ALIGN_LEFT,
+                                    new iTextSharp.text.Phrase($"Anhang: {att.FileName} (nicht direkt darstellbar)"),
+                                    50, 800, 0
+                                );
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errorList.Add($"Fehler bei Anhang {att.FileName}: {ex.Message}");
+                        }
+                        finally
+                        {
+                            try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+                        }
+                    }
+                }
+                try { if (File.Exists(tempPdf)) File.Delete(tempPdf); } catch { }
+            }
+        }
+
         private string GenerateFileName(EmailInfo email)
         {
             string pattern = filenamePatternTextBox.Text;
             string fileName = pattern
                 .Replace("{YYYY-MM-DD}", email.ReceivedTime.ToString("yyyy-MM-dd"))
+                .Replace("{DD.MM.YYYY}", email.ReceivedTime.ToString("dd.MM.yyyy"))
+                .Replace("{YYYY}", email.ReceivedTime.ToString("yyyy"))
+                .Replace("{MM}", email.ReceivedTime.ToString("MM"))
+                .Replace("{DD}", email.ReceivedTime.ToString("dd"))
                 .Replace("{Betreff}", SanitizeFileName(email.Subject))
                 .Replace("{Absender}", SanitizeFileName(email.SenderName));
             // ggf. weitere Platzhalter
             return fileName;
+        }
+
+        private string GenerateFolderName(EmailInfo email)
+        {
+            string pattern = folderPatternTextBox.Text;
+            string folderName = pattern
+                .Replace("{YYYY-MM-DD}", email.ReceivedTime.ToString("yyyy-MM-dd"))
+                .Replace("{DD.MM.YYYY}", email.ReceivedTime.ToString("dd.MM.yyyy"))
+                .Replace("{YYYY}", email.ReceivedTime.ToString("yyyy"))
+                .Replace("{MM}", email.ReceivedTime.ToString("MM"))
+                .Replace("{DD}", email.ReceivedTime.ToString("dd"))
+                .Replace("{Betreff}", SanitizeFileName(email.Subject))
+                .Replace("{Absender}", SanitizeFileName(email.SenderName));
+            return folderName;
         }
 
         private string SanitizeFileName(string fileName)
@@ -1127,54 +1292,6 @@ namespace OutlookArchivierungApp
 
         }
 
-        //private void AddFilenamePatternControls()
-        //{
-        //    // Label für das Dateinamen-Muster
-        //    filenamePatternLabel = new Label();
-        //    filenamePatternLabel.Text = "Dateinamen-Muster:";
-        //    filenamePatternLabel.Location = new Point(15, 210);
-        //    filenamePatternLabel.Size = new Size(120, 20);
-        //    groupBox4.Controls.Add(filenamePatternLabel);
-
-        //    // TextBox für das Muster
-        //    filenamePatternTextBox = new TextBox();
-        //    filenamePatternTextBox.Name = "filenamePatternTextBox";
-        //    filenamePatternTextBox.Size = new Size(250, 20);
-        //    filenamePatternTextBox.Location = new Point(140, 210);
-        //    filenamePatternTextBox.Text = "{YYYY-MM-DD}_{Betreff}_{Absender}";
-        //    groupBox4.Controls.Add(filenamePatternTextBox);
-
-        //    // Buttons für Platzhalter
-        //    Button btnDate = new Button();
-        //    btnDate.Text = "{YYYY-MM-DD}";
-        //    btnDate.Size = new Size(100, 25);
-        //    btnDate.Location = new Point(15, 240);
-        //    btnDate.Click += (s, e) => InsertPlaceholder("{YYYY-MM-DD}");
-        //    groupBox4.Controls.Add(btnDate);
-
-        //    Button btnSubject = new Button();
-        //    btnSubject.Text = "{Betreff}";
-        //    btnSubject.Size = new Size(80, 25);
-        //    btnSubject.Location = new Point(120, 240);
-        //    btnSubject.Click += (s, e) => InsertPlaceholder("{Betreff}");
-        //    groupBox4.Controls.Add(btnSubject);
-
-        //    Button btnSender = new Button();
-        //    btnSender.Text = "{Absender}";
-        //    btnSender.Size = new Size(80, 25);
-        //    btnSender.Location = new Point(210, 240);
-        //    btnSender.Click += (s, e) => InsertPlaceholder("{Absender}");
-        //    groupBox4.Controls.Add(btnSender);
-
-        //    // Optional: Weitere Platzhalter-Buttons
-        //    Button btnMail = new Button();
-        //    btnMail.Text = "{Mail}";
-        //    btnMail.Size = new Size(80, 25);
-        //    btnMail.Location = new Point(300, 240);
-        //    btnMail.Click += (s, e) => InsertPlaceholder("{Mail}");
-        //    groupBox4.Controls.Add(btnMail);
-        //}
-
         private void InsertPlaceholder(string placeholder)
         {
             if (filenamePatternTextBox == null) return;
@@ -1201,6 +1318,53 @@ namespace OutlookArchivierungApp
         private void filenamePatternTextBox_TextChanged(object sender, EventArgs e)
         {
 
+        }
+
+        private Outlook.MailItem? GetMailItemByEntryID(string entryID)
+        {
+            if (nameSpace == null) return null;
+            try
+            {
+                var item = nameSpace.GetItemFromID(entryID);
+                return item as Outlook.MailItem;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void subfolderTypeComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void InsertFolderPlaceholder(string placeholder)
+        {
+            if (folderPatternTextBox == null) return;
+            int selectionIndex = folderPatternTextBox.SelectionStart;
+            folderPatternTextBox.Text = folderPatternTextBox.Text.Insert(selectionIndex, placeholder);
+            folderPatternTextBox.SelectionStart = selectionIndex + placeholder.Length;
+        }
+
+        private void btnFolderYYYY_Click(object sender, EventArgs e)
+        {
+            InsertFolderPlaceholder("{YYYY}");
+        }
+
+        private void btnFolderMM_Click(object sender, EventArgs e)
+        {
+            InsertFolderPlaceholder("{MM}");
+        }
+
+        private void btnFolderAbsender_Click(object sender, EventArgs e)
+        {
+            InsertFolderPlaceholder("{Absender}");
+        }
+
+        private void btnFolderBetreff_Click(object sender, EventArgs e)
+        {
+            InsertFolderPlaceholder("{Betreff}");
         }
     }
 }

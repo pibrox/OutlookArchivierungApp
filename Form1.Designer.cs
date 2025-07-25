@@ -58,7 +58,6 @@
             includeCcBccCheckBox = new CheckBox();
             createSubfoldersCheckBox = new CheckBox();
             createLogFileCheckBox = new CheckBox();
-            subfolderTypeComboBox = new ComboBox();
             groupBox1 = new GroupBox();
             label1 = new Label();
             outputFolderTextBox = new TextBox();
@@ -73,6 +72,12 @@
             exportFormatComboBox = new ComboBox();
             preserveFormattingCheckBox = new CheckBox();
             embedImagesCheckBox = new CheckBox();
+            label3 = new Label();
+            folderPatternTextBox = new TextBox();
+            btnFolderYYYY = new Button();
+            btnFolderMM = new Button();
+            btnFolderAbsender = new Button();
+            btnFolderBetreff = new Button();
             mainTabControl.SuspendLayout();
             mainTabPage.SuspendLayout();
             groupBox2.SuspendLayout();
@@ -283,6 +288,12 @@
             // 
             // groupBox4
             // 
+            groupBox4.Controls.Add(btnFolderBetreff);
+            groupBox4.Controls.Add(btnFolderAbsender);
+            groupBox4.Controls.Add(btnFolderMM);
+            groupBox4.Controls.Add(btnFolderYYYY);
+            groupBox4.Controls.Add(folderPatternTextBox);
+            groupBox4.Controls.Add(label3);
             groupBox4.Controls.Add(btnSender);
             groupBox4.Controls.Add(btnSubject);
             groupBox4.Controls.Add(btnDate);
@@ -292,7 +303,6 @@
             groupBox4.Controls.Add(includeCcBccCheckBox);
             groupBox4.Controls.Add(createSubfoldersCheckBox);
             groupBox4.Controls.Add(createLogFileCheckBox);
-            groupBox4.Controls.Add(subfolderTypeComboBox);
             groupBox4.Location = new Point(20, 20);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new Size(674, 417);
@@ -386,15 +396,6 @@
             createLogFileCheckBox.TabIndex = 3;
             createLogFileCheckBox.Text = "Log-Datei erstellen";
             createLogFileCheckBox.UseVisualStyleBackColor = true;
-            // 
-            // subfolderTypeComboBox
-            // 
-            subfolderTypeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            subfolderTypeComboBox.Enabled = false;
-            subfolderTypeComboBox.Location = new Point(158, 73);
-            subfolderTypeComboBox.Name = "subfolderTypeComboBox";
-            subfolderTypeComboBox.Size = new Size(150, 23);
-            subfolderTypeComboBox.TabIndex = 4;
             // 
             // groupBox1
             // 
@@ -501,6 +502,62 @@
             embedImagesCheckBox.Size = new Size(104, 24);
             embedImagesCheckBox.TabIndex = 0;
             // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(15, 203);
+            label3.Name = "label3";
+            label3.Size = new Size(113, 15);
+            label3.TabIndex = 9;
+            label3.Text = "Unterordner-Muster";
+            // 
+            // folderPatternTextBox
+            // 
+            folderPatternTextBox.Location = new Point(134, 195);
+            folderPatternTextBox.Name = "folderPatternTextBox";
+            folderPatternTextBox.Size = new Size(336, 23);
+            folderPatternTextBox.TabIndex = 10;
+            // 
+            // btnFolderYYYY
+            // 
+            btnFolderYYYY.Location = new Point(152, 243);
+            btnFolderYYYY.Name = "btnFolderYYYY";
+            btnFolderYYYY.Size = new Size(75, 23);
+            btnFolderYYYY.TabIndex = 11;
+            btnFolderYYYY.Text = "Jahr";
+            btnFolderYYYY.UseVisualStyleBackColor = true;
+            btnFolderYYYY.Click += btnFolderYYYY_Click;
+            // 
+            // btnFolderMM
+            // 
+            btnFolderMM.Location = new Point(234, 243);
+            btnFolderMM.Name = "btnFolderMM";
+            btnFolderMM.Size = new Size(75, 23);
+            btnFolderMM.TabIndex = 12;
+            btnFolderMM.Text = "Monat";
+            btnFolderMM.UseVisualStyleBackColor = true;
+            btnFolderMM.Click += btnFolderMM_Click;
+            // 
+            // btnFolderAbsender
+            // 
+            btnFolderAbsender.Location = new Point(315, 243);
+            btnFolderAbsender.Name = "btnFolderAbsender";
+            btnFolderAbsender.Size = new Size(75, 23);
+            btnFolderAbsender.TabIndex = 13;
+            btnFolderAbsender.Text = "Absender";
+            btnFolderAbsender.UseVisualStyleBackColor = true;
+            btnFolderAbsender.Click += btnFolderAbsender_Click;
+            // 
+            // btnFolderBetreff
+            // 
+            btnFolderBetreff.Location = new Point(396, 243);
+            btnFolderBetreff.Name = "btnFolderBetreff";
+            btnFolderBetreff.Size = new Size(75, 23);
+            btnFolderBetreff.TabIndex = 14;
+            btnFolderBetreff.Text = "Betreff";
+            btnFolderBetreff.UseVisualStyleBackColor = true;
+            btnFolderBetreff.Click += btnFolderBetreff_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -549,7 +606,6 @@
         private CheckBox includeCcBccCheckBox;
         private CheckBox createSubfoldersCheckBox;
         private CheckBox createLogFileCheckBox;
-        private ComboBox subfolderTypeComboBox;
         private GroupBox groupBox5;
         private DateTimePicker dateFromPicker;
         private DateTimePicker dateToPicker;
@@ -577,5 +633,11 @@
         private Button btnSender;
         private Button btnSubject;
         private Button btnDate;
+        private Button btnFolderBetreff;
+        private Button btnFolderAbsender;
+        private Button btnFolderMM;
+        private Button btnFolderYYYY;
+        private TextBox folderPatternTextBox;
+        private Label label3;
     }
 }

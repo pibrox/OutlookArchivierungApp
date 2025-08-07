@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OutlookArchivierungApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6f6e940603ff232fbf8bf1471cec8a1d251ffd1e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7e3a3cc7334137e17a087e6d59366782230c69eb")]
 [assembly: System.Reflection.AssemblyProductAttribute("OutlookArchivierungApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OutlookArchivierungApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

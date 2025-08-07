@@ -4,7 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Reflection;
-using System.Runtime.InteropServices;  // Diese Zeile hinzufügen
+using System.Runtime.InteropServices; 
 using iTextSharp.text;
 using iTextSharp.text.pdf;
 using iTextFont = iTextSharp.text.Font; // Alias für iTextSharp Font
@@ -12,8 +12,9 @@ using HtmlDoc = HtmlAgilityPack.HtmlDocument;
 using Newtonsoft.Json;
 using Outlook = Microsoft.Office.Interop.Outlook;
 using PuppeteerSharp;
-using PuppeteerSharp.Media;  // Diese Zeile hinzufügen
+using PuppeteerSharp.Media;  
 using Point = System.Drawing.Point; // Alias für Point-Konflikt
+using System.Diagnostics;
 
 namespace OutlookArchivierungApp
 {
@@ -37,8 +38,16 @@ namespace OutlookArchivierungApp
 
         public Form1()
         {
-            InitializeComponent();
-            InitializeApplication();
+            try
+            {
+                InitializeComponent();
+                InitializeApplication();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Fehler beim Starten der Anwendung: {ex.Message}\n\nDetails: {ex.StackTrace}",
+                    "Startfehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void InitializeApplication()
@@ -47,20 +56,27 @@ namespace OutlookArchivierungApp
             filteredEmails = new List<EmailInfo>();
             settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OutlookArchivierungApp", "settings.json");
 
-            // Event-Handler registrieren
-            RegisterEventHandlers();
+            try {
+                // Event-Handler registrieren
+                RegisterEventHandlers();
 
-            // Background Workers initialisieren
-            InitializeBackgroundWorkers();
+                // Background Workers initialisieren
+                InitializeBackgroundWorkers();
 
-            // Outlook initialisieren
-            InitializeOutlook();
+                // UI initialisieren ZUERST
+                InitializeUI();
 
-            // UI initialisieren (VORHER)
-            InitializeUI();
+                // Outlook initialisieren DANACH
+                InitializeOutlook();
 
-            // Einstellungen laden (NACHHER)
-            LoadSettings();
+                // Einstellungen laden ZULETZT
+                LoadSettings();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Fehler bei der Initialisierung: {ex.Message}\n\nDetails: {ex.StackTrace}",
+                    "Initialisierungsfehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void RegisterEventHandlers()
@@ -105,7 +121,7 @@ namespace OutlookArchivierungApp
                     return;
                 }
 
-                // Prüfen, ob Outlook bereits läuft (funktioniert mit alter und neuer Ansicht)
+                // Prüfen, ob Outlook bereits läuft 
                 if (!IsOutlookRunning())
                 {
                     MessageBox.Show("Bitte starten Sie Microsoft Outlook zuerst und warten Sie, bis es vollständig geladen ist.", "Outlook nicht gestartet", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -277,7 +293,7 @@ namespace OutlookArchivierungApp
             }
             catch (Exception)
             {
-                // Ordner möglicherweise nicht zugänglich
+                
             }
         }
 
@@ -306,9 +322,7 @@ namespace OutlookArchivierungApp
             dateFromPicker.Value = DateTime.Now.AddDays(-30);
             dateToPicker.Value = DateTime.Now;
 
-            // ComboBox-Items initialisieren
 
-            // Subfolder-Steuerelemente deaktivieren
 
             statusLabel.Text = "Bereit";
             //AddFilenamePatternControls();
@@ -337,7 +351,6 @@ namespace OutlookArchivierungApp
             }
         }
 
-        // MoveControlsToCorrectTabs und MoveControlsToGroupBoxes entfernen
 
         private void AddAdvancedExportOptions()
         {
@@ -427,58 +440,84 @@ namespace OutlookArchivierungApp
             }
         }
 
-        private void LoadSettings()
+        
+private void LoadSettings()
+{
+    try
+    {
+        string settingsPath = @"settings.json";
+        if (File.Exists(settingsPath))
         {
-            try
+            string json = File.ReadAllText(settingsPath);
+            var settings = JsonConvert.DeserializeObject<AppSettings>(json);
+            
+            if (settings != null)
             {
-                if (File.Exists(settingsFilePath))
-                {
-                    string json = File.ReadAllText(settingsFilePath);
-                    var settings = JsonConvert.DeserializeObject<AppSettings>(json);
+                if (outputFolderTextBox != null)
+                    outputFolderTextBox.Text = settings.OutputFolder ?? "";
 
-                    if (settings != null)
-                    {
-                        outputFolderTextBox.Text = settings.OutputFolder ?? "";
-                        includeAttachmentsCheckBox.Checked = settings.IncludeAttachments;
-                        includeCcBccCheckBox.Checked = settings.IncludeCcBcc;
-                        createSubfoldersCheckBox.Checked = settings.CreateSubfolders;
-                        filenamePatternTextBox.Text = settings.FilenamePattern ?? "{YYYY-MM-DD}_{Betreff}_{Absender}";
-                        folderPatternTextBox.Text = settings.FolderPattern ?? "{YYYY}\\{Absender}";
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Einstellungen konnten nicht geladen werden - Standardwerte verwenden
+                if (includeAttachmentsCheckBox != null)
+                    includeAttachmentsCheckBox.Checked = settings.IncludeAttachments;
+
+                if (includeCcBccCheckBox != null)
+                    includeCcBccCheckBox.Checked = settings.IncludeCcBcc;
+
+                if (createSubfoldersCheckBox != null)
+                    createSubfoldersCheckBox.Checked = settings.CreateSubfolders;
+
+                if (filenamePatternTextBox != null)
+                    filenamePatternTextBox.Text = settings.FilenamePattern ?? "";
+
+                if (createLogFileCheckBox != null)
+                    createLogFileCheckBox.Checked = settings.CreateLogFile;
+
+                if (folderPatternTextBox != null)
+                    folderPatternTextBox.Text = settings.FolderPattern ?? "";
+
+                // Autostart-CheckBox basierend auf tatsächlichem Status setzen
+                if (startWithWindowsCheckBox != null)
+                    startWithWindowsCheckBox.Checked = IsAutostartEnabledViaStartupFolder();
             }
         }
-
-        private void SaveSettings()
+        else
         {
-            try
-            {
-                var settings = new AppSettings
-                {
-                    OutputFolder = outputFolderTextBox.Text,
-                    IncludeAttachments = includeAttachmentsCheckBox.Checked,
-                    IncludeCcBcc = includeCcBccCheckBox.Checked,
-                    CreateSubfolders = createSubfoldersCheckBox.Checked,
-                    FilenamePattern = filenamePatternTextBox.Text,
-                    FolderPattern = folderPatternTextBox.Text
-                };
-
-                string directory = Path.GetDirectoryName(settingsFilePath);
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
-
-                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                File.WriteAllText(settingsFilePath, json);
-            }
-            catch (Exception ex)
-            {
-                // Einstellungen konnten nicht gespeichert werden
-            }
+            // Beim ersten Start den aktuellen Autostart-Status laden
+            if (startWithWindowsCheckBox != null)
+                startWithWindowsCheckBox.Checked = IsAutostartEnabledViaStartupFolder();
         }
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Fehler beim Laden der Einstellungen: {ex.Message}", 
+                       "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
+
+private void SaveSettings()
+{
+    try
+    {
+        var settings = new AppSettings
+        {
+            OutputFolder = outputFolderTextBox.Text,
+            IncludeAttachments = includeAttachmentsCheckBox.Checked,
+            IncludeCcBcc = includeCcBccCheckBox.Checked,
+            CreateSubfolders = createSubfoldersCheckBox.Checked,
+            FilenamePattern = filenamePatternTextBox.Text,
+            CreateLogFile = createLogFileCheckBox.Checked,
+            FolderPattern = folderPatternTextBox.Text,
+            StartWithWindows = IsAutostartEnabledViaStartupFolder() // Aktuellen Status speichern
+        };
+
+        string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
+        File.WriteAllText(@"settings.json", json);
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Fehler beim Speichern der Einstellungen: {ex.Message}", 
+                       "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
 
         public class AppSettings
         {
@@ -489,6 +528,7 @@ namespace OutlookArchivierungApp
             public string? FilenamePattern { get; set; }
             public bool CreateLogFile { get; set; } = true;
             public string? FolderPattern { get; set; }
+            public bool StartWithWindows { get; set; } = false;
         }
 
         private void BrowseButton_Click(object sender, EventArgs e)
@@ -661,7 +701,7 @@ namespace OutlookArchivierungApp
             var result = new ExportResult();
             var errorList = new List<string>();
 
-            // Synchroner Export mit iTextSharp (einfacher und zuverlässiger)
+            // Synchroner Export mit iTextSharp 
             for (int i = 0; i < emailsToExport.Count; i++)
             {
                 if (exportWorker.CancellationPending)
@@ -1366,5 +1406,156 @@ namespace OutlookArchivierungApp
         {
             InsertFolderPlaceholder("{Betreff}");
         }
+
+        private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
+        {
+            throw new System.NotImplementedException();
+        }
+        
+        #region Autostart Funktionalität
+
+/// <summary>
+/// Aktiviert oder deaktiviert den Autostart über den Windows Startup-Ordner
+/// </summary>
+/// <param name="enable">True zum Aktivieren, False zum Deaktivieren</param>
+private void SetAutostartViaStartupFolder(bool enable)
+{
+    try
+    {
+        string startupPath = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+        string shortcutPath = Path.Combine(startupPath, "OutlookArchivierungApp.lnk");
+
+        if (enable)
+        {
+            CreateShortcut(shortcutPath, Application.ExecutablePath);
+            MessageBox.Show("Autostart wurde aktiviert. Das Programm wird beim nächsten Windows-Start automatisch gestartet.", 
+                           "Autostart aktiviert", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else
+        {
+            if (File.Exists(shortcutPath))
+            {
+                File.Delete(shortcutPath);
+                MessageBox.Show("Autostart wurde deaktiviert.", 
+                               "Autostart deaktiviert", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Fehler beim Konfigurieren des Autostarts:\n{ex.Message}", 
+                       "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
+
+/// <summary>
+/// Prüft, ob der Autostart über den Startup-Ordner aktiviert ist
+/// </summary>
+/// <returns>True wenn aktiviert, False wenn nicht</returns>
+private bool IsAutostartEnabledViaStartupFolder()
+{
+    try
+    {
+        string startupPath = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+        string shortcutPath = Path.Combine(startupPath, "OutlookArchivierungApp.lnk");
+        return File.Exists(shortcutPath);
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"Fehler beim Prüfen des Autostarts: {ex.Message}");
+        return false;
+    }
+}
+
+/// <summary>
+/// Erstellt eine Windows-Verknüpfung im angegebenen Pfad
+/// </summary>
+/// <param name="shortcutPath">Pfad zur Verknüpfungsdatei</param>
+/// <param name="targetPath">Pfad zur Zielanwendung</param>
+private void CreateShortcut(string shortcutPath, string targetPath)
+{
+    try
+    {
+        // COM-Objekt für Windows Shell verwenden
+        Type shellType = Type.GetTypeFromProgID("WScript.Shell");
+        if (shellType == null)
+        {
+            throw new Exception("Windows Shell COM-Objekt nicht verfügbar");
+        }
+
+        dynamic shell = Activator.CreateInstance(shellType);
+        var shortcut = shell.CreateShortcut(shortcutPath);
+        
+        shortcut.TargetPath = targetPath;
+        shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
+        shortcut.Description = "Outlook Archivierung App - Automatischer Start";
+        shortcut.WindowStyle = 1; // Normal window
+        
+        shortcut.Save();
+        
+        // COM-Objekt freigeben
+        System.Runtime.InteropServices.Marshal.ReleaseComObject(shortcut);
+        System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
+    }
+    catch (Exception ex)
+    {
+        throw new Exception($"Konnte Verknüpfung nicht erstellen: {ex.Message}");
+    }
+}
+
+/// <summary>
+/// Event-Handler für die Autostart-CheckBox
+/// </summary>
+private void startWithWindowsCheckBox_CheckedChanged(object sender, EventArgs e)
+{
+    try
+    {
+        CheckBox checkBox = (CheckBox)sender;
+
+        // Bestätigung anzeigen
+        string message = checkBox.Checked
+            ? "Möchten Sie das Programm wirklich beim Windows-Start automatisch starten?"
+            : "Möchten Sie den automatischen Start wirklich deaktivieren?";
+
+        DialogResult result = MessageBox.Show(message, "Autostart konfigurieren",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+        if (result == DialogResult.Yes)
+        {
+            SetAutostartViaStartupFolder(checkBox.Checked);
+            SaveSettings(); // Einstellungen sofort speichern
+        }
+        else
+        {
+            // CheckBox-Status zurücksetzen wenn abgebrochen
+            checkBox.CheckedChanged -= startWithWindowsCheckBox_CheckedChanged;
+            checkBox.Checked = !checkBox.Checked;
+            checkBox.CheckedChanged += startWithWindowsCheckBox_CheckedChanged;
+        }
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Fehler beim Ändern der Autostart-Einstellung:\n{ex.Message}",
+            "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
+/// <summary>
+/// Öffnet den Windows Startup-Ordner im Explorer
+/// </summary>
+private void OpenStartupFolder()
+{
+    try
+    {
+        string startupPath = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+        Process.Start("explorer.exe", startupPath);
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Konnte Startup-Ordner nicht öffnen:\n{ex.Message}", 
+                       "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+}
+
+#endregion
     }
 }
